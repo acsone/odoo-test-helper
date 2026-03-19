@@ -65,10 +65,10 @@ Wrong way
    from .models import ResPartner
 
 
-   class FakeModel(SavepointCase):
+   class TestFakeModel(SavepointCase):
        @classmethod
        def setUpClass(cls):
-           super(FakeModel, cls).setUpClass()
+           super(TestFakeModel, cls).setUpClass()
            cls.loader = FakeModelLoader(cls.env, cls.__module__)
            cls.loader.backup_registry()
 
@@ -77,15 +77,15 @@ Wrong way
        @classmethod
        def tearDownClass(cls):
            cls.loader.restore_registry()
-           super(FakeModel, cls).tearDownClass()
+           super(TestFakeModel, cls).tearDownClass()
 
        def test_create(self):
            partner = self.env["res.partner"].create({"name": "BAR", "test_char": "youhou"})
            self.assertEqual(partner.name, "FOO-BAR")
            self.assertEqual(partner.test_char, "youhou")
 
-Right Way (up to v17)
----------------------
+Right Way
+---------
 
 .. code-block:: python
 
@@ -94,52 +94,27 @@ Right Way (up to v17)
     from odoo_test_helper import FakeModelLoader
 
 
-    class FakeModel(SavepointCase):
+    class TestFakeModel(SavepointCase):
         @classmethod
         def setUpClass(cls):
-            super(FakeModel, cls).setUpClass()
+            super(TestFakeModel, cls).setUpClass()
             cls.loader = FakeModelLoader(cls.env, cls.__module__)
             cls.loader.backup_registry()
+            cls.addClassCleanup(cls.loader.restore_registry)
 
             # The fake class is imported here !! After the backup_registry
             from .models import ResPartner
 
             cls.loader.update_registry((ResPartner,))
 
-        @classmethod
-        def tearDownClass(cls):
-            cls.loader.restore_registry()
-            super(FakeModel, cls).tearDownClass()
+        # IN ODOO 18.0 DUE TO A CHANGE IN ODOO THE FOLLOWING CODE IS ALSO REQUIRED
 
-        def test_create(self):
-            partner = self.env["res.partner"].create({"name": "BAR", "test_char": "youhou"})
-            self.assertEqual(partner.name, "FOO-BAR")
-            self.assertEqual(partner.test_char, "youhou")
+        def check_attrs(self):
+            # Deactivate check_attrs to avoid conflict with FakeModelLoader.
+            # since superClass uses it for its own puposes not relevant for our tests.
+            pass
 
-Right Way (v18)
----------------
-
-.. code-block:: python
-
-    from odoo.tests import TransactionCase
-
-    from odoo_test_helper import FakeModelLoader
-
-
-    class FakeModel(TransactionCase):
-        def setUp(self):
-            super().setUp()
-            self.loader = FakeModelLoader(self.env, self.__module__)
-            self.loader.backup_registry()
-
-            # The fake class is imported here !! After the backup_registry
-            from .models import ResPartner
-
-            self.loader.update_registry((ResPartner,))
-
-        def tearDown(self):
-            self.loader.restore_registry()
-            super().tearDown()
+        # END OF 18.0 CHANGE
 
         def test_create(self):
             partner = self.env["res.partner"].create({"name": "BAR", "test_char": "youhou"})
